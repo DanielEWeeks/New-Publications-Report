@@ -1,0 +1,111 @@
+---
+title: "New Publication Report generator"
+author: "Daniel E. Weeks"
+date: "`r format(Sys.time(), '%B %d, %Y, %R')`"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_depth: '3'
+    code_folding: show
+  pdf_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+require(knitr)
+# Set so that long lines in R will be wrapped:
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+
+```{r,echo=FALSE}
+# In the event of a crash, save the working space on exit:
+save_all <- function() {
+  save.image("recover.RData")
+}
+options(error = save_all)
+```
+
+
+# Load Libraries
+
+```{r load_libraries,message=FALSE}
+library(openxlsx)
+library(easyPubMed)
+```
+
+# Input directory and files 
+
+```{r}
+# Print the working directory
+getwd()
+```
+The input files used in this analysis are ... and can be found in ... 
+
+# Analysis
+
+```{r}
+a <- read.xlsx("New_Publication_Report.xlsx")
+b <- a[-1:-2,]
+```
+
+## Set up the PubMed query
+
+```{r}
+my_query <- "Daniel E. Weeks AND 2019[PDAT]"
+```
+
+## Carry out the PubMed query
+
+```{r}
+my_entrez_id <- get_pubmed_ids(my_query)
+my_abstracts <- fetch_pubmed_data(my_entrez_id, format = "xml")
+
+```
+
+## Extract the retrieved data into the desired format
+
+```{r}
+xx <- table_articles_byAuth(pubmed_data = my_abstracts, 
+                            included_authors = "all", 
+                            max_chars = 10000,
+                            getKeywords = FALSE,
+                            autofill = FALSE)
+```
+
+```{r}
+ids <- unique(xx$pmid)
+k <- 1
+for (j in 1:length(ids)) {
+  i <- ids[j]
+  d <- subset(xx, pmid == i)
+  authors <- paste0(d$lastname, ", ", d$firstname, collapse = "; ")
+  link <- paste0("https://www.ncbi.nlm.nih.gov/pubmed/", i)
+  b[k, ]$Title <- d[1, ]$title
+  b[k, ]$Authors <- authors
+  b[k, ]$`Abbreviated.PubMed.\"results\".summary` <- d[1, ]$abstract
+  b[k, ]$Journal <- d[1, ]$journal
+  b[k, ]$Link.to.PubMed.listing <- link
+  k <- k + 1
+}
+
+```
+
+## Save the extracted data to an Excel spreadsheet
+
+```{r}
+ISO.date <- format(Sys.time(),"%F")
+outfl <- paste0("Weeks_New_Publication_Report_",ISO.date,".xlsx")
+write.xlsx(b,file=outfl)
+```
+
+
+# Session Information
+
+```{r}
+sessionInfo()
+```
+
